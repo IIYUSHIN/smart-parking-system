@@ -65,7 +65,7 @@ LOCATIONS = [
         "operating_hours": "08:00-23:00",
         "image_url": "/assets/locations/mall.jpg",
         "zones": [
-            {"zone_id": "LOC_MALL_GF", "zone_name": "Ground Floor", "max_capacity": 100},
+            {"zone_id": "LOC_MALL_GF", "zone_name": "Ground Floor", "max_capacity": 4},
             {"zone_id": "LOC_MALL_B1", "zone_name": "Basement P1", "max_capacity": 100},
         ],
         "pricing": {"rate_per_hour": 40, "rate_per_day": 300, "currency": "INR"},

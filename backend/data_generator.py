@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.database import (
-    init_db, batch_log_events, aggregate_daily, get_connection
+    init_db, batch_log_events, aggregate_daily, get_connection, update_status
 )
 from backend.config import DB_PATH, LOCATIONS
 
@@ -169,13 +169,15 @@ _DOW_MULTIPLIERS = {
 def generate_zone_day(date: datetime, zone_id: str,
                       max_capacity: int, location_type: str,
                       special_event: tuple = None,
-                      day_of_week_multiplier: float = 1.0) -> list[tuple]:
+                      day_of_week_multiplier: float = 1.0,
+                      starting_count: int = 0,
+                      stop_at: str = None) -> tuple[list[tuple], int]:
     """Generates one full day of events for a single zone.
-    Returns list of tuples: (zone_id, event_type, event_time, occupancy_after).
+    Returns (events_list, final_count).
     Does NOT insert into database — caller handles batching."""
     is_weekend = date.weekday() >= 5
     profile_fn = _PROFILES[location_type]
-    current_count = 0
+    current_count = starting_count
     events = []
 
     surge_multiplier = 1.0
@@ -210,9 +212,13 @@ def generate_zone_day(date: datetime, zone_id: str,
                                    ).isoformat(timespec='seconds')
                 et2 = date.replace(hour=hour, minute=minute + 1, second=second
                                    ).isoformat(timespec='seconds')
+                
+                if stop_at and et1 > stop_at: return events, current_count
                 if current_count < max_capacity:
                     current_count += 1
                     events.append((zone_id, "ENTRY", et1, current_count))
+                    
+                if stop_at and et2 > stop_at: return events, current_count
                 if current_count > 0:
                     current_count -= 1
                     events.append((zone_id, "EXIT", et2, current_count))
@@ -231,6 +237,8 @@ def generate_zone_day(date: datetime, zone_id: str,
                 s = ts % 60
                 et = date.replace(hour=hour, minute=m, second=s
                                   ).isoformat(timespec='seconds')
+                
+                if stop_at and et > stop_at: return events, current_count
 
                 if churn_done < churn and current_count < max_capacity:
                     current_count += 1
@@ -249,24 +257,41 @@ def generate_zone_day(date: datetime, zone_id: str,
                     events.append((zone_id, "EXIT", et, current_count))
                     remaining += 1
 
-    return events
+        # Strict mathematical normalization at end of day to prevent "Ghost Car" drift.
+        # If we didn't naturally reach the exact target_count by 23:59 due to noise/churn,
+        # forcefully emit exact exits to ensure we start the next day fresh.
+        if hour == 23 and current_count > target_count:
+            excess = current_count - target_count
+            for i in range(excess):
+                s = max(0, 59 - i)
+                et = date.replace(hour=23, minute=59, second=s).isoformat(timespec='seconds')
+                if stop_at and et > stop_at: return events, current_count
+                current_count -= 1
+                events.append((zone_id, "EXIT", et, current_count))
+
+    return events, current_count
 
 
-def generate_all_data(start_date: str = "2026-02-24",
+def generate_all_data(start_date: str = None,
                       num_days: int = 30,
                       db_path: str = DB_PATH) -> dict:
     """Generates synthetic data for ALL 5 locations across all zones.
     Uses batch insertion for performance."""
     init_db(db_path, LOCATIONS)
 
+    now = datetime.now(timezone.utc)
+    if not start_date:
+        start_date = (now - timedelta(days=num_days - 1)).strftime("%Y-%m-%d")
+
     base_date = datetime.strptime(start_date, "%Y-%m-%d").replace(
         tzinfo=timezone.utc)
+    stop_at = now.isoformat(timespec='seconds')
 
     print("=" * 70)
     print("  SMART PARKING SYSTEM v2.0 -- Synthetic Data Generator")
     print("=" * 70)
     print(f"  Start date:  {start_date}")
-    print(f"  Duration:    {num_days} days")
+    print(f"  Duration:    {num_days} days (ends exactly at {stop_at})")
     print(f"  Locations:   {len(LOCATIONS)}")
     total_zones = sum(len(l['zones']) for l in LOCATIONS)
     total_cap = sum(z['max_capacity'] for l in LOCATIONS for z in l['zones'])
@@ -294,21 +319,27 @@ def generate_all_data(start_date: str = "2026-02-24",
             max_cap = zone["max_capacity"]
             all_zone_events = []
 
+            current_count_tracker = 0
             for day_offset in range(num_days):
                 current_date = base_date + timedelta(days=day_offset)
                 dow = current_date.weekday()
                 dow_mult = dow_mults.get(dow, 1.0)
                 special = special_events.get(day_offset)
 
-                day_events = generate_zone_day(
+                day_events, current_count_tracker = generate_zone_day(
                     current_date, zone_id, max_cap, loc_type,
                     special_event=special,
-                    day_of_week_multiplier=dow_mult
+                    day_of_week_multiplier=dow_mult,
+                    starting_count=current_count_tracker,
+                    stop_at=stop_at
                 )
                 all_zone_events.extend(day_events)
 
             # Batch insert all events for this zone at once
             batch_log_events(db_path, all_zone_events)
+            
+            # Immediately backfill the live status table so the dashboard works instantly
+            update_status(db_path, zone_id, current_count_tracker, max_cap, "SIMULATION")
 
             # Aggregate daily summaries
             for day_offset in range(num_days):
@@ -351,5 +382,5 @@ if __name__ == "__main__":
         finally:
             conn.close()
 
-    result = generate_all_data("2026-02-24", num_days=30)
+    result = generate_all_data(start_date=None, num_days=30)
     print(f"\nResult: {result['grand_total']:,} total events generated")

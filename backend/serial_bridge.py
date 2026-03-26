@@ -203,5 +203,5 @@ class SerialBridge:
             "last_updated": status["last_updated"]
         }
 
-        self.socketio.emit('parking_update', payload)
+        self.socketio.emit('zone_update', {"data": payload})
         logger.info(f"Event: {event_type} | Count: {count}/{max_cap}")

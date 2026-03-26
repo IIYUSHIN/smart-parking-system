@@ -414,3 +414,53 @@ def test_save_chat_message(db_path):
     save_chat_message(db_path, "Is the mall full?",
                       "No, plenty of space!", "CHECK_AVAILABILITY", None)
     # Just verify no exception — chat history is write-only in this layer
+
+
+# ═══════════════════════════════════════════════
+# FK ENFORCEMENT + WAL MODE
+# ═══════════════════════════════════════════════
+
+def test_wal_mode_enabled(db_path):
+    """Database operates in WAL mode."""
+    conn = get_connection(db_path)
+    mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    conn.close()
+    assert mode == "wal", f"Expected WAL, got {mode}"
+
+
+def test_fk_enforcement_invalid_zone_booking(db_path):
+    """Inserting a booking with nonexistent zone_id fails."""
+    user = create_user(db_path, "FK Test", "fk@test.com", "pass")
+    conn = get_connection(db_path)
+    try:
+        with pytest.raises(Exception):
+            conn.execute(
+                "INSERT INTO bookings "
+                "(user_id, zone_id, booking_time, start_time, status) "
+                "VALUES (?, 'NONEXISTENT_ZONE', '2026-01-01', '2026-01-01', 'CONFIRMED')",
+                (user['user_id'],)
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def test_booking_rejected_when_zone_full(db_path):
+    """Creating a booking on a full zone raises ValueError."""
+    # Fill Z_TEST_B to capacity (50)
+    update_status(db_path, "Z_TEST_B", 50, 50)
+    user = create_user(db_path, "Full Test", "full@test.com", "pass")
+    with pytest.raises(ValueError, match="full"):
+        create_booking(db_path, user['user_id'], "Z_TEST_B",
+                       "2026-03-25T10:00:00+00:00")
+
+
+def test_all_locations_with_config(db_path):
+    """5 locations with correct data using the full LOCATIONS config."""
+    from backend.config import LOCATIONS
+    full_path = str(db_path).replace("test_v2.db", "test_full.db")
+    init_db(full_path, LOCATIONS)
+    locations = get_all_locations(full_path)
+    assert len(locations) == 5
+    names = {l['name'] for l in locations}
+    assert 'Elante Mall Parking' in names

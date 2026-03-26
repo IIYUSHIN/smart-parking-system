@@ -212,7 +212,7 @@ async function loadLocations() {
             </div>
             <div class="location-card-body">
                 <h3>${loc.name}</h3>
-                <p class="address">${loc.location_type} • ${loc.total_zones || '--'} zones</p>
+                <p class="address">${loc.location_type} • ${loc.zone_count || '--'} zones</p>
                 <div class="location-stats">
                     <div class="location-stat-item">
                         <strong>${avail}</strong>
@@ -427,8 +427,8 @@ function renderDailyChart(data) {
     if (state.charts.daily) state.charts.daily.destroy();
 
     const labels = data.map(d => d.date ? d.date.substring(5) : '--');
-    const maxes = data.map(d => d.max_occupancy || 0);
-    const avgs = data.map(d => Math.round(d.avg_occupancy || 0));
+    const maxes = data.map(d => d.peak_count || 0);
+    const avgs = data.map(d => Math.round(d.avg_utilization || 0));
 
     state.charts.daily = new Chart(ctx, {
         type: 'bar',

@@ -352,9 +352,10 @@ def init_db(db_path: str, locations: list | None = None) -> None:
 # ═══════════════════════════════════════════════════════════
 
 def get_all_locations(db_path: str) -> list[dict]:
-    """Returns all parking locations with aggregated zone data."""
+    """Returns all parking locations with aggregated zone data and zone list."""
     conn = get_connection(db_path)
     try:
+        # 1. Fetch base location aggregates
         rows = conn.execute("""
             SELECT
                 pl.*,
@@ -369,26 +370,53 @@ def get_all_locations(db_path: str) -> list[dict]:
             ORDER BY pl.name
         """).fetchall()
 
+        # 2. Fetch all active pricing rules into a lookup map
+        pricing_rows = conn.execute("""
+            SELECT location_id, rate_per_hour, rate_per_day, currency
+            FROM pricing_rules WHERE is_active = 1
+        """).fetchall()
+        pricing_map = {r["location_id"]: dict(r) for r in pricing_rows}
+
+        # 3. Fetch all zones and map by location_id
+        zone_rows = conn.execute("""
+            SELECT pz.location_id, pz.zone_id, pz.zone_name, pz.max_capacity,
+                   COALESCE(ps.current_count, 0) AS current_count,
+                   COALESCE(ps.available_slots, pz.max_capacity) AS available_slots
+            FROM parking_zones pz
+            LEFT JOIN parking_status ps ON pz.zone_id = ps.zone_id
+            ORDER BY pz.zone_name
+        """).fetchall()
+        
+        zone_map = {}
+        for z in zone_rows:
+            loc_id = z["location_id"]
+            if loc_id not in zone_map:
+                zone_map[loc_id] = []
+            zd = dict(z)
+            del zd["location_id"]
+            zone_map[loc_id].append(zd)
+
         result = []
         for row in rows:
             d = dict(row)
+            loc_id = d["location_id"]
+            
             total_cap = d["total_capacity"]
             total_occ = d["total_occupied"]
             d["utilization_percent"] = round(
                 (total_occ / total_cap * 100) if total_cap > 0 else 0.0, 1
             )
             d["is_full"] = total_occ >= total_cap
-            # Get pricing
-            pricing = conn.execute(
-                "SELECT rate_per_hour, rate_per_day, currency "
-                "FROM pricing_rules WHERE location_id = ? AND is_active = 1",
-                (d["location_id"],)
-            ).fetchone()
-            if pricing:
-                d["rate_per_hour"] = pricing["rate_per_hour"]
-                d["rate_per_day"] = pricing["rate_per_day"]
-                d["currency"] = pricing["currency"]
+            
+            if loc_id in pricing_map:
+                p = pricing_map[loc_id]
+                d["rate_per_hour"] = p["rate_per_hour"]
+                d["rate_per_day"] = p["rate_per_day"]
+                d["currency"] = p["currency"]
+                
+            d["zones"] = zone_map.get(loc_id, [])
             result.append(d)
+            
         return result
     finally:
         conn.close()
@@ -419,6 +447,7 @@ def get_location(db_path: str, location_id: str) -> dict | None:
         d["zones"] = [dict(z) for z in zones]
 
         # Aggregate totals
+        d["zone_count"] = len(d["zones"])
         d["total_capacity"] = sum(z["max_capacity"] for z in d["zones"])
         d["total_occupied"] = sum(
             z.get("current_count", 0) or 0 for z in d["zones"]

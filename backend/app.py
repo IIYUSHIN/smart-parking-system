@@ -514,7 +514,7 @@ if __name__ == '__main__':
     if args.generate_data:
         from backend.data_generator import generate_all_data
         init_db(DB_PATH, LOCATIONS)
-        generate_all_data("2026-02-24", 30)
+        generate_all_data(start_date=None, num_days=30)
         print("\nData generated. Run without --generate-data to start server.")
         sys.exit(0)
 

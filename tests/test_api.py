@@ -245,3 +245,143 @@ def test_api_pricing(client):
     data = json.loads(res.data)
     assert data['status'] == 'ok'
     assert data['data']['amount'] == 100  # 2 * 50
+
+
+# ═══════════════════════════════════════════════
+# BOOKINGS API (Phase 4)
+# ═══════════════════════════════════════════════
+
+def test_api_create_booking(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    res = client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T10:00:00+00:00'
+    }, headers=headers)
+    assert res.status_code == 201
+    data = json.loads(res.data)
+    assert data['data']['status'] == 'CONFIRMED'
+    assert data['data']['zone_id'] == 'Z_API_A'
+
+
+def test_api_my_bookings(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    # Create a booking first
+    client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T11:00:00+00:00'
+    }, headers=headers)
+    res = client.get('/api/bookings/my', headers=headers)
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert isinstance(data['data'], list)
+    assert len(data['data']) >= 1
+
+
+def test_api_cancel_booking(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    # Create then cancel
+    create_res = client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T12:00:00+00:00'
+    }, headers=headers)
+    booking_id = json.loads(create_res.data)['data']['booking_id']
+    res = client.post(f'/api/bookings/{booking_id}/cancel', headers=headers)
+    assert res.status_code == 200
+
+
+def test_api_create_booking_requires_auth(client):
+    res = client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T10:00:00+00:00'
+    })
+    assert res.status_code == 401
+
+
+# ═══════════════════════════════════════════════
+# PAYMENTS API (Phase 4)
+# ═══════════════════════════════════════════════
+
+def test_api_create_payment(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    # Create a booking first
+    create_res = client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T13:00:00+00:00'
+    }, headers=headers)
+    booking_id = json.loads(create_res.data)['data']['booking_id']
+    # Create payment
+    res = client.post('/api/payments/create', json={
+        'booking_id': booking_id,
+        'amount': 150.0,
+        'method': 'SIMULATED'
+    }, headers=headers)
+    assert res.status_code == 201
+    data = json.loads(res.data)
+    assert data['data']['status'] == 'PENDING'
+    assert data['data']['amount'] == 150.0
+
+
+def test_api_process_payment(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    # Create booking + payment
+    create_res = client.post('/api/bookings/create', json={
+        'zone_id': 'Z_API_A',
+        'start_time': '2026-03-25T14:00:00+00:00'
+    }, headers=headers)
+    booking_id = json.loads(create_res.data)['data']['booking_id']
+    pay_res = client.post('/api/payments/create', json={
+        'booking_id': booking_id, 'amount': 100.0
+    }, headers=headers)
+    payment_id = json.loads(pay_res.data)['data']['payment_id']
+    # Process payment
+    res = client.post(f'/api/payments/{payment_id}/process', headers=headers)
+    assert res.status_code == 200
+
+
+def test_api_payment_history(client, db_setup):
+    headers = _auth_headers(client, db_setup)
+    res = client.get('/api/payments/history', headers=headers)
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert isinstance(data['data'], list)
+
+
+# ═══════════════════════════════════════════════
+# ADDITIONAL ENDPOINT COVERAGE (Phase 6)
+# ═══════════════════════════════════════════════
+
+def test_api_location_status(client):
+    res = client.get('/api/locations/LOC_API/status')
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert data['data']['location_id'] == 'LOC_API'
+    assert 'total_capacity' in data['data']
+    assert 'zones' in data['data']
+
+
+def test_api_zone_history(client):
+    res = client.get('/api/dashboard/Z_API_A/history?hours=24')
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert isinstance(data['data'], list)
+
+
+def test_api_zone_recommendation(client):
+    res = client.get('/api/dashboard/Z_API_A/recommendation')
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert data['status'] == 'ok'
+
+
+def test_api_all_recommendations(client):
+    res = client.get('/api/recommendations')
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert data['status'] == 'ok'
+
+
+def test_api_profile_invalid_token(client):
+    """Invalid token returns 403."""
+    res = client.get('/api/auth/profile',
+                     headers={'Authorization': 'Bearer fake_token'})
+    assert res.status_code == 403
