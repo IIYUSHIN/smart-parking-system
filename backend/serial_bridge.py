@@ -12,7 +12,7 @@ import logging
 
 from backend.config import (
     SERIAL_PORT, BAUD_RATE, SERIAL_TIMEOUT,
-    PARKING_ID, MAX_CAPACITY, DB_PATH,
+    ARDUINO_ZONE_ID, ARDUINO_MAX_CAPACITY, DB_PATH,
     SIMULATE_INTERVAL_MIN, SIMULATE_INTERVAL_MAX
 )
 from backend.database import update_status, log_event
@@ -114,7 +114,7 @@ class SerialBridge:
                 break
 
             # Decide event type based on current state
-            if self.current_count >= MAX_CAPACITY:
+            if self.current_count >= ARDUINO_MAX_CAPACITY:
                 event_type = "EXIT"
             elif self.current_count == 0:
                 event_type = "ENTRY"
@@ -130,7 +130,7 @@ class SerialBridge:
             event = {
                 "e": event_type,
                 "c": self.current_count,
-                "m": MAX_CAPACITY,
+                "m": ARDUINO_MAX_CAPACITY,
                 "t": int(time.time() * 1000)
             }
 
@@ -186,14 +186,14 @@ class SerialBridge:
         max_cap = event['m']
 
         # 1. Update status
-        status = update_status(DB_PATH, PARKING_ID, count, max_cap)
+        status = update_status(DB_PATH, ARDUINO_ZONE_ID, count, max_cap)
 
         # 2. Log event
-        log_event(DB_PATH, PARKING_ID, event_type, count)
+        log_event(DB_PATH, ARDUINO_ZONE_ID, event_type, count)
 
         # 3. Emit to WebSocket
         payload = {
-            "parking_id": PARKING_ID,
+            "zone_id": ARDUINO_ZONE_ID,
             "current_count": count,
             "available_slots": max_cap - count,
             "utilization_percent": round((count / max_cap) * 100, 1),

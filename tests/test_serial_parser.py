@@ -1,6 +1,6 @@
 """
-Unit Tests — Serial Parser
-Tests JSON parsing, validation, and edge cases from serial_bridge.py.
+Unit Tests — Serial Bridge Parser v2.0
+Tests JSON parsing, validation, and edge cases.
 """
 
 import os

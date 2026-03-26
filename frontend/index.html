@@ -3,161 +3,493 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0a0f1c">
-    <meta name="description" content="AI-Powered Smart Parking Management System - Real-time occupancy tracking and predictive analytics">
-    <title>Smart Parking | AI-Powered Dashboard</title>
-
-    <!-- Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/styles.css">
-
-    <!-- PWA -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>SmartPark — Intelligent Parking Platform</title>
+    <meta name="description" content="AI-powered multi-location parking management platform with real-time availability, smart predictions, and instant booking. Serving Delhi Airport, Elante Mall, PGIMER, Infosys, and CU Campus.">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
 
-    <!-- ═══════════ HEADER ═══════════ -->
-    <header class="header">
-        <div class="header__title">
-            <span class="header__icon">&#x1F17F;&#xFE0F;</span>
-            <div class="header__text">
-                <h1>Smart Parking System</h1>
-                <span>AI-Powered Occupancy Intelligence</span>
-            </div>
+<!-- ═══════════════════════════════════ NAVBAR ═══════════════════════════════════ -->
+<nav class="navbar" id="navbar">
+    <div class="navbar-inner">
+        <a href="#" class="navbar-brand" onclick="navigate('landing')">
+            <span class="logo-icon">SP</span>
+            SmartPark
+        </a>
+        <ul class="navbar-links" id="navLinks">
+            <li><a href="#" data-page="landing">Home</a></li>
+            <li><a href="#" data-page="locations">Locations</a></li>
+            <li><a href="#" data-page="dashboard">Dashboard</a></li>
+            <li><a href="#" data-page="assistant">AI Assistant</a></li>
+            <li><a href="#" data-page="about">About</a></li>
+        </ul>
+        <div class="navbar-actions" id="navActions">
+            <button class="btn-nav" onclick="navigate('auth')" id="btnLogin">Sign In</button>
+            <button class="btn-nav primary" onclick="navigate('auth')" id="btnSignup">Get Started</button>
+            <button class="btn-nav hidden" id="btnProfile" onclick="navigate('profile')">Profile</button>
+            <button class="btn-nav hidden" id="btnLogout" onclick="logout()">Logout</button>
         </div>
-        <div class="live-indicator">
-            <span class="live-dot" id="live-dot"></span>
-            <span id="connection-status">Connecting...</span>
-        </div>
-    </header>
+        <button class="hamburger" id="hamburger" onclick="toggleMobileNav()">☰</button>
+    </div>
+</nav>
 
-    <!-- ═══════════ DASHBOARD ═══════════ -->
-    <main class="dashboard">
-        <div class="dashboard-grid">
-
-            <!-- Card 1: Live Occupancy Ring -->
-            <div class="card" id="card-occupancy">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F4CA;</span>
-                    Live Occupancy
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 1: LANDING PAGE
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page active" id="page-landing">
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Smart Parking for a<br><span class="text-accent">Smarter City</span></h1>
+                <p class="subtitle">AI-powered parking predictions, real-time availability, and instant booking across 5 premium locations in the Chandigarh-Delhi corridor.</p>
+                <div class="hero-buttons">
+                    <button class="btn btn-primary btn-lg" onclick="navigate('locations')">
+                        Find Parking →
+                    </button>
+                    <button class="btn btn-secondary btn-lg" onclick="navigate('dashboard')">
+                        Live Dashboard
+                    </button>
                 </div>
-                <div class="occupancy-display">
-                    <div class="occupancy-ring">
-                        <svg viewBox="0 0 140 140">
-                            <circle class="ring-bg" cx="70" cy="70" r="65"/>
-                            <circle class="ring-fill" id="occupancy-ring-fill" cx="70" cy="70" r="65"/>
-                        </svg>
-                        <div class="occupancy-count">
-                            <div class="count-number" id="occupancy-count">0</div>
-                            <div class="count-max">/ <span id="max-capacity">4</span></div>
+            </div>
+            <div class="hero-visual">
+                <div style="padding: 40px; text-align: center;">
+                    <div style="font-size: 4rem; margin-bottom: 16px;">🅿️</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="card" style="padding: 16px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent);" id="heroAvailable">--</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Spots Available</div>
+                        </div>
+                        <div class="card" style="padding: 16px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--success);" id="heroLocations">5</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Locations</div>
+                        </div>
+                        <div class="card" style="padding: 16px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--warning);" id="heroPredictions">24/7</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">AI Monitoring</div>
+                        </div>
+                        <div class="card" style="padding: 16px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--info);" id="heroUsers">Live</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Updates</div>
                         </div>
                     </div>
-                    <div class="occupancy-slots">
-                        <strong id="available-slots">4</strong> slots available
-                    </div>
                 </div>
             </div>
-
-            <!-- Card 2: Status -->
-            <div class="card" id="card-status">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x26A1;</span>
-                    Parking Status
-                </div>
-                <div class="status-display">
-                    <div class="badge badge-ok" id="status-badge">
-                        <span>&#x2705;</span> Available
-                    </div>
-                    <div class="last-event">
-                        Last event: <strong id="last-event-type">--</strong>
-                    </div>
-                    <div class="last-event">
-                        Updated: <strong id="last-updated">--</strong>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card 3: AI Prediction -->
-            <div class="card" id="card-prediction">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F916;</span>
-                    AI Prediction (Next Hour)
-                </div>
-                <div class="prediction-value" id="prediction-value">--</div>
-                <div class="prediction-label">
-                    Predicted occupancy by AI model
-                </div>
-            </div>
-
-            <!-- Card 4: Peak Hours -->
-            <div class="card" id="card-peak">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F525;</span>
-                    Busiest Hours
-                </div>
-                <div class="peak-display">
-                    <div class="peak-time" id="peak-hours">--:-- &ndash; --:--</div>
-                    <div class="peak-label">Highest average occupancy window</div>
-                </div>
-            </div>
-
-            <!-- Card 5: Utilization -->
-            <div class="card" id="card-utilization">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F4C8;</span>
-                    Overall Utilization
-                </div>
-                <div class="utilization-display">
-                    <div class="utilization-value" id="utilization-value">0%</div>
-                    <div class="utilization-bar">
-                        <div class="utilization-bar__fill" id="utilization-bar-fill" style="width: 0%"></div>
-                    </div>
-                    <div class="utilization-label">Average across all recorded data</div>
-                </div>
-            </div>
-
-            <!-- Card 6: Occupancy Timeline (Chart) -->
-            <div class="card span-2" id="card-timeline">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F4C9;</span>
-                    Occupancy Timeline (Last 24h)
-                </div>
-                <div class="chart-container">
-                    <canvas id="chart-timeline"></canvas>
-                </div>
-            </div>
-
-            <!-- Card 7: Daily Trends (Chart) -->
-            <div class="card" id="card-daily">
-                <div class="card__label">
-                    <span class="card__label-icon">&#x1F4CA;</span>
-                    Daily Utilization (7 Days)
-                </div>
-                <div class="chart-container">
-                    <canvas id="chart-daily"></canvas>
-                </div>
-            </div>
-
         </div>
-    </main>
+    </div>
 
-    <!-- ═══════════ FOOTER ═══════════ -->
+    <!-- Stats Bar -->
+    <div class="container">
+        <div class="stats-bar fade-in">
+            <div class="stat-item">
+                <div class="stat-number" id="statCapacity">1,050</div>
+                <div class="stat-label">Total Capacity</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Premium Locations</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">9</div>
+                <div class="stat-label">Parking Zones</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">77K+</div>
+                <div class="stat-label">Events Processed</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="container section">
+        <h2 class="text-center" style="margin-bottom: 12px;">Why SmartPark?</h2>
+        <p class="subtitle text-center" style="margin: 0 auto 48px;">Powered by machine learning, designed for urban mobility</p>
+        <div class="features-grid">
+            <div class="card feature-card fade-in stagger-1">
+                <div class="feature-icon">🤖</div>
+                <h4>AI Predictions</h4>
+                <p>Random Forest + Linear Regression models predict occupancy per zone with MAE under 3.2</p>
+            </div>
+            <div class="card feature-card fade-in stagger-2">
+                <div class="feature-icon">⚡</div>
+                <h4>Real-Time Updates</h4>
+                <p>WebSocket-powered live dashboard showing occupancy across all zones with instant updates</p>
+            </div>
+            <div class="card feature-card fade-in stagger-3">
+                <div class="feature-icon">💬</div>
+                <h4>AI Assistant</h4>
+                <p>Chat with our AI to check availability, compare prices, find best times, and get smart recommendations</p>
+            </div>
+            <div class="card feature-card fade-in stagger-4">
+                <div class="feature-icon">📊</div>
+                <h4>Smart Analytics</h4>
+                <p>30-day historical data with anomaly detection, peak analysis, and utilization tracking</p>
+            </div>
+            <div class="card feature-card fade-in stagger-5">
+                <div class="feature-icon">🔒</div>
+                <h4>Secure Booking</h4>
+                <p>User accounts with session tokens, booking management, and simulated payment processing</p>
+            </div>
+            <div class="card feature-card fade-in stagger-5">
+                <div class="feature-icon">📍</div>
+                <h4>Multi-Location</h4>
+                <p>5 real venues: Mall, Airport, Corporate, University, Hospital — each with unique patterns</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="container section" style="padding-bottom: 40px;">
+        <h2 class="text-center" style="margin-bottom: 48px;">How It Works</h2>
+        <div class="steps-row">
+            <div class="step-item fade-in stagger-1">
+                <div class="step-number">1</div>
+                <h4>Choose Location</h4>
+                <p>Browse 5 parking locations with real-time availability status</p>
+            </div>
+            <div class="step-item fade-in stagger-2">
+                <div class="step-number">2</div>
+                <h4>Check & Book</h4>
+                <p>AI predicts the best time to park; reserve your spot instantly</p>
+            </div>
+            <div class="step-item fade-in stagger-3">
+                <div class="step-number">3</div>
+                <h4>Park & Pay</h4>
+                <p>Navigate to your spot. Smart pricing calculates your fee automatically</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
     <footer class="footer">
-        Powered by AI &middot; Smart Parking Prototype v1.0 &middot; Piyush Kumar
+        <ul class="footer-links">
+            <li><a href="#" onclick="navigate('locations')">Locations</a></li>
+            <li><a href="#" onclick="navigate('dashboard')">Dashboard</a></li>
+            <li><a href="#" onclick="navigate('assistant')">AI Assistant</a></li>
+            <li><a href="#" onclick="navigate('about')">About</a></li>
+        </ul>
+        <p class="footer-credit">SmartPark v2.0 — Built with Flask, SQLite, scikit-learn & Chart.js</p>
     </footer>
+</section>
 
-    <!-- ═══════════ SCRIPTS ═══════════ -->
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="js/websocket.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/app.js"></script>
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 2: LOCATIONS
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-locations">
+    <div class="container" style="padding-top: 100px;">
+        <h2 style="margin-bottom: 8px;">Parking Locations</h2>
+        <p class="subtitle" style="margin-bottom: 32px;">Real-time availability across 5 premium parking venues</p>
+        <div class="locations-grid" id="locationsGrid">
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <footer class="footer">
+        <p class="footer-credit">SmartPark v2.0</p>
+    </footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 3: DASHBOARD
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-dashboard">
+    <div class="container dashboard-page">
+        <div class="dashboard-header">
+            <div>
+                <h2 style="margin-bottom: 4px;">Live Dashboard</h2>
+                <p class="text-muted" id="dashboardSubtitle">Select a zone to view detailed analytics</p>
+            </div>
+            <select class="zone-selector" id="zoneSelector" onchange="loadZoneData(this.value)">
+                <option value="">— Select Zone —</option>
+            </select>
+        </div>
+
+        <!-- Recommendation Banner -->
+        <div class="recommendation-banner hidden" id="recBanner">
+            <span style="font-size: 1.5rem;">💡</span>
+            <span id="recMessage">Loading recommendation...</span>
+        </div>
+
+        <!-- Summary Cards Row -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;" id="summaryCards">
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">OCCUPANCY</div>
+                <div style="font-size: 2rem; font-weight: 700;" id="dashOccupancy">--</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);" id="dashCapacity">/ --</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">AVAILABLE</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--success);" id="dashAvailable">--</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">spots free</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">UTILIZATION</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--accent);" id="dashUtilization">--%</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);" id="dashStatus">Unknown</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">PREDICTION</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--info);" id="dashPrediction">--</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);" id="dashPredModel">--</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="dashboard-grid">
+            <div class="card card-half">
+                <div class="card-header">
+                    <span class="card-title">Hourly Occupancy Pattern</span>
+                    <span class="badge badge-accent">24 Hours</span>
+                </div>
+                <canvas id="chartHourly" height="220"></canvas>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Daily Summary</span>
+                    <span class="badge badge-info">Last 7 Days</span>
+                </div>
+                <canvas id="chartDaily" height="220"></canvas>
+            </div>
+            <div class="card card-half">
+                <div class="card-header">
+                    <span class="card-title">Recent Events</span>
+                    <span class="badge badge-accent" id="eventCount">--</span>
+                </div>
+                <div id="eventsList" style="max-height: 300px; overflow-y: auto;">
+                    <p class="text-muted">Select a zone to view events</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">AI Analysis</span>
+                    <span class="badge badge-info">ML Insights</span>
+                </div>
+                <div id="aiAnalysis">
+                    <p class="text-muted">Select a zone for AI analysis</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 4: AI ASSISTANT (Chatbot)
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-assistant">
+    <div class="container chat-page">
+        <div class="chat-container">
+            <div style="text-align: center; padding: 20px 0;">
+                <h2>AI Parking Assistant</h2>
+                <p class="text-muted">Ask me about availability, prices, predictions, and more</p>
+            </div>
+
+            <div class="quick-actions">
+                <button class="quick-action" onclick="sendChat('Is the mall full?')">🅿️ Mall Status</button>
+                <button class="quick-action" onclick="sendChat('Compare all parking')">📊 Compare All</button>
+                <button class="quick-action" onclick="sendChat('Best time for airport?')">⏰ Best Time</button>
+                <button class="quick-action" onclick="sendChat('Show parking rates')">💰 Prices</button>
+                <button class="quick-action" onclick="sendChat('Help')">❓ Help</button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-bubble bot">Welcome to SmartPark AI! 🤖
+
+I can help you with:
+• Check availability at any location
+• Find the best time to park
+• Compare parking options
+• Show pricing & predictions
+
+Just type your question below!</div>
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" id="chatInput"
+                       placeholder="Ask me anything about parking..."
+                       onkeydown="if(event.key==='Enter')sendChat()">
+                <button class="chat-send" onclick="sendChat()">Send</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 5: AUTH (Login/Register)
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-auth">
+    <div class="auth-page">
+        <div class="card auth-card">
+            <div style="text-align: center; margin-bottom: 8px;">
+                <span class="logo-icon" style="display: inline-flex; width: 48px; height: 48px; font-size: 1.25rem; margin-bottom: 12px;">SP</span>
+                <h3>Welcome to SmartPark</h3>
+                <p class="text-muted" style="font-size: 0.875rem;">Sign in to book parking and manage reservations</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Sign In</button>
+                <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Create Account</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Email</label>
+                    <input type="email" class="form-input" id="loginEmail" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input type="password" class="form-input" id="loginPassword" placeholder="Enter password" required>
+                </div>
+                <div id="loginError" style="color: var(--danger); font-size: 0.8125rem; margin-bottom: 12px;"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label class="form-label" for="regName">Full Name</label>
+                    <input type="text" class="form-input" id="regName" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regEmail">Email</label>
+                    <input type="email" class="form-input" id="regEmail" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regPhone">Phone (optional)</label>
+                    <input type="tel" class="form-input" id="regPhone" placeholder="+91 9876543210">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regVehicle">Vehicle Plate (optional)</label>
+                    <input type="text" class="form-input" id="regVehicle" placeholder="CH01AB1234">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regPassword">Password</label>
+                    <input type="password" class="form-input" id="regPassword" placeholder="Min 6 characters" required minlength="6">
+                </div>
+                <div id="registerError" style="color: var(--danger); font-size: 0.8125rem; margin-bottom: 12px;"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 6: PROFILE
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-profile">
+    <div class="container profile-page">
+        <div class="profile-header">
+            <div class="profile-avatar" id="profileAvatar">?</div>
+            <div class="profile-info">
+                <h2 id="profileName">Guest</h2>
+                <p id="profileEmail">Not logged in</p>
+            </div>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchProfileTab('bookings')">My Bookings</button>
+            <button class="tab-btn" onclick="switchProfileTab('payments')">Payments</button>
+        </div>
+
+        <div id="profileBookings">
+            <p class="text-muted">No bookings yet. Visit Locations to book your first spot!</p>
+        </div>
+        <div id="profilePayments" class="hidden">
+            <p class="text-muted">No payment history.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     PAGE 7: ABOUT
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<section class="page" id="page-about">
+    <div class="container about-page">
+        <h2 style="margin-bottom: 8px;">About SmartPark</h2>
+        <p class="subtitle" style="margin-bottom: 40px;">An AI-powered urban parking platform for the modern city</p>
+
+        <div class="card" style="margin-bottom: 32px; padding: 32px;">
+            <h3 style="margin-bottom: 12px;">Project Overview</h3>
+            <p style="color: var(--text-secondary); line-height: 1.8;">
+                SmartPark is a production-grade parking management platform designed for city-scale deployment.
+                It integrates IoT sensors (Arduino/IR), machine learning prediction engines, and a modern web interface
+                to provide real-time parking availability, AI-powered recommendations, and seamless booking across
+                multiple urban locations — from shopping malls and airports to hospitals and universities.
+            </p>
+        </div>
+
+        <h3 style="margin-bottom: 20px;">Technology Stack</h3>
+        <div class="tech-stack-grid" style="margin-bottom: 48px;">
+            <div class="card tech-item">
+                <div class="tech-icon">🐍</div>
+                <h4>Python / Flask</h4>
+                <p>Backend API + WebSocket server</p>
+            </div>
+            <div class="card tech-item">
+                <div class="tech-icon">🗄️</div>
+                <h4>SQLite + WAL</h4>
+                <p>14-table database, ACID compliance</p>
+            </div>
+            <div class="card tech-item">
+                <div class="tech-icon">🤖</div>
+                <h4>scikit-learn</h4>
+                <p>Random Forest + Linear Regression</p>
+            </div>
+            <div class="card tech-item">
+                <div class="tech-icon">📊</div>
+                <h4>Chart.js</h4>
+                <p>Interactive analytics charts</p>
+            </div>
+            <div class="card tech-item">
+                <div class="tech-icon">🔌</div>
+                <h4>Socket.IO</h4>
+                <p>Real-time WebSocket updates</p>
+            </div>
+            <div class="card tech-item">
+                <div class="tech-icon">🔧</div>
+                <h4>Arduino</h4>
+                <p>IR sensor hardware integration</p>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 20px;">System Architecture</h3>
+        <div class="card" style="padding: 32px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center;">
+                <div>
+                    <div style="font-size: 2rem; margin-bottom: 8px;">📡</div>
+                    <h4>IoT Layer</h4>
+                    <p style="font-size: 0.8125rem; color: var(--text-secondary);">Arduino + IR sensors detect vehicle entry/exit</p>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; margin-bottom: 8px;">⚙️</div>
+                    <h4>Backend Layer</h4>
+                    <p style="font-size: 0.8125rem; color: var(--text-secondary);">Flask API, SQLite DB, ML models, Chatbot</p>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; margin-bottom: 8px;">🖥️</div>
+                    <h4>Frontend Layer</h4>
+                    <p style="font-size: 0.8125rem; color: var(--text-secondary);">SPA with real-time dashboard & AI chat</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 48px;">
+            <p class="text-muted" style="margin-bottom: 16px;">Built by Piyush — B.Tech CSE, Chandigarh University</p>
+            <a href="https://github.com/IIYUSHIN/smart-parking-system" class="btn btn-secondary" target="_blank">
+                View on GitHub →
+            </a>
+        </div>
+    </div>
+    <footer class="footer">
+        <p class="footer-credit">SmartPark v2.0 — © 2026</p>
+    </footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT — SPA Router + API Integration
+     ══════════════════════════════════════════════════════════════════════════════ -->
+<script src="app.js"></script>
 
 </body>
 </html>
