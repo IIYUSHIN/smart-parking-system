@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: smart-parking
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start.py
+    envVars:
+      - key: PORT
+        value: "5000"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SECRET_KEY
+        generateValue: true
+    disk:
+      name: parking-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

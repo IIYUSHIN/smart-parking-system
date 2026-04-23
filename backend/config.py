@@ -26,9 +26,9 @@ DB_PATH = os.path.join(BASE_DIR, "data", "smart_parking.db")
 # FLASK SERVER
 # ═══════════════════════════════════════════════════════════
 FLASK_HOST = "0.0.0.0"
-FLASK_PORT = 5000
+FLASK_PORT = int(os.environ.get("PORT", 5000))
 FLASK_DEBUG = False
-SECRET_KEY = "sp_v2_dev_key_change_in_production"
+SECRET_KEY = os.environ.get("SECRET_KEY", "sp_v2_dev_key_change_in_production")
 SESSION_EXPIRY_HOURS = 24
 
 

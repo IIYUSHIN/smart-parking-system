@@ -1,5 +1,6 @@
 flask>=3.0
 flask-socketio>=5.3
+simple-websocket>=1.0
 pyserial>=3.5
 scikit-learn>=1.4
 pandas>=2.1
